@@ -4,7 +4,7 @@ This project demonstrates SOLID principles through practical examples using a re
 
 ## SOLID Principles Covered
 
-### 1. Single Responsibility Principle (SRP)
+### 1. Single Responsibility (SRP)
 
 **Principle**: A class should have only one reason to change, meaning it should have only one responsibility.
 
@@ -27,7 +27,7 @@ In `src/solid_principles/single_responsability/after.py`, responsibilities are s
 
 ---
 
-### 2. Open/Closed Principle (OCP)
+### 2. Open/Closed (OCP)
 
 **Principle**: Software entities should be open for extension but closed for modification. You should be able to add new functionality without changing existing code.
 
@@ -50,6 +50,10 @@ Key takeaway:
 We extend functionality by creating new classes that extends the abstract classes, rather than modifying existing functionality.
 
 ---
+
+### 3. Liskov Substitution (LSP)
+
+**Principle**: Subclasses should be substituted by base class.
 
 ## Project Structure
 
