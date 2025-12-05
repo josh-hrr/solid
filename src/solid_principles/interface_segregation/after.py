@@ -128,11 +128,12 @@ class OfflinePaymentProcessor(PaymentProcessor):
         return PaymentResponse(
             status="success",
             amount=payment_data["amount"],
-            transaction_id=uuid.uuid4(),
+            transaction_id=str(uuid.uuid4()),
             message="Offline payment successful"
         ) 
     ''' code below is not actually needed in this class, 
      it was removed to comply with the Interface Segregation Principle 
+     Concept: a class should not depend on methods that DOES NOT implement.
     '''
     # def refund_transaction(self, transaction_id) -> PaymentResponse:
     #     raise NotImplementedError("Refunding transactions is not supported for offline payments")
@@ -178,10 +179,25 @@ class PaymentService:
             raise NotImplementedError("Creating recurring payments is not supported by the current payment processor")
 
 if __name__ == "__main__":
-    refund_processor = StripePaymentProcessor()
+    # Setup payment processors
+    stripe_processor = StripePaymentProcessor()
+    offline_processor = OfflinePaymentProcessor() 
+    # Setup notofication types
     sms_notification = SMSNotification(sms_gateway="twilio")
-    payment_processor = PaymentService(notifier=sms_notification, refund_processor=refund_processor)
-
+    email_notification = EmailNotification() 
+    # Initialize PaymentService with Stripe and EmailNotification
+    payment_processor_email = PaymentService(
+        stripe_processor, 
+        email_notification,
+        refund_processor=stripe_processor,
+        recurring_processor=stripe_processor 
+        ) 
+    # Initialize PaymentService with Stripe and SMSNotification 
+    payment_processor_sms = PaymentService(
+        stripe_processor,
+        sms_notification
+    ) 
+    # Setup the customer data and payment data
     customer_data_with_email = {
         "name": "John Doe",
         "contact_info": {"email": "e@mail.com"},
@@ -190,10 +206,59 @@ if __name__ == "__main__":
         "name": "Platzi Python",
         "contact_info": {"phone": "1234567890"},
     }
- 
+    # Setup payment data
     payment_data = {"amount": 500, "source": "tok_mastercard", "cvv": 123}
 
-    payment_processor.process_transaction(customer_data_with_email, payment_data)
-    payment_processor.process_transaction(customer_data_with_phone, payment_data)
+    print("\nProcessing payment_processor_email")
+    payment_processor_email.process_transaction(customer_data_with_email, payment_data)
+    print("\nProcessing payment_processor_sms")
+    sms_payment_response=payment_processor_sms.process_transaction(customer_data_with_phone, payment_data)
 
- 
+    # Processing a Refund using Stripe
+    print("\nProcessing a Refund using Stripe")
+    transaction_id_to_refund = sms_payment_response.transaction_id
+    if transaction_id_to_refund:
+        payment_processor_email.refund_transaction(transaction_id_to_refund)
+    
+    # Using OfflinePaymentProcessor with EmailNotification
+    print("\nUsing OfflinePaymentProcessor with EmailNotification")
+    offline_payment_service = PaymentService(offline_processor, email_notification)
+    offline_payment_response = offline_payment_service.process_transaction(
+        customer_data_with_email, payment_data
+    )
+
+    # Attempt to refund using offline processor (will fail)
+    print("\nAttempt to refund using offline processor (will fail)")
+    try:
+        if offline_payment_response.transaction_id:
+            offline_payment_service.process_refund(
+                offline_payment_response.transaction_id
+            )
+    except Exception as e:
+        print(f"Refund failed and PaymentService raised an exception: {e}")
+
+    # Attempt to set up recurring payment using offline processor (will fail)
+    print("\nAttempt to set up recurring payment using offline processor (will fail)")
+    try:
+        offline_payment_service.create_recurring_payment(customer_data_with_email, payment_data)
+
+    except Exception as e:
+        print(
+            f"Recurring payment setup failed and PaymentService raised an exception {e}"
+        )
+    
+    # Transaction that errors because of the cardType is invalid.
+    print("\nTransaction that errors because of the cardType is invalid.")
+    try: 
+        invalid_payment_data = {"amount": 100, "source": "tok_radarBlock"} 
+        payment_processor_email.process_transaction(
+            customer_data_with_email, invalid_payment_data
+        )
+    except Exception as e:
+        print(f"Payment failed and PaymentService raised an exception: {e}")
+    
+    # Set up create_recurring_payment for Stripe and EmailNotification 
+    print("\nSet up create_recurring_payment for Stripe and EmailNotification")
+    payment_processor_email.create_recurring_payment(
+        customer_data_with_email, payment_data
+    )
