@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from stripe import Charge, StripeError 
 from abc import ABC, abstractmethod
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Protocol
 import uuid
 
 _ = load_dotenv()
@@ -17,6 +17,7 @@ class PaymentResponse(BaseModel):
     amount: float
     transaction_id: str
     message: str
+ 
 
 @dataclass
 class CustomerValidation: 
@@ -142,11 +143,13 @@ class OfflinePaymentProcessor(PaymentProcessor):
 
 @dataclass
 class PaymentService:
-    customer_validator = CustomerValidation()
-    payment_validator = PaymentDataValidator()
-    payment_processor: PaymentProcessor = field(default_factory=StripePaymentProcessor)
-    notifier: Notification = field(default_factory=EmailNotification)
-    logger = TransactionLogger()
+    # dependency_inversion: high-levl class should not depend on low-level class. 
+    # class does not need to instantiate low-level classes, should follow Protocol contract.
+    customer_validator: CustomerValidation
+    payment_validator: PaymentDataValidator
+    payment_processor: PaymentProcessor
+    notifier: Notification
+    logger: TransactionLogger
     recurring_processor: Optional[CreateRecurringPaymentProcessor] = None
     refund_processor: Optional[RefundTransactionProcessor] = None
 
@@ -179,6 +182,11 @@ class PaymentService:
             raise NotImplementedError("Creating recurring payments is not supported by the current payment processor")
 
 if __name__ == "__main__":
+    # Setup Validators
+    customer_validator = CustomerValidation()
+    payment_validator = PaymentDataValidator()
+    #Logger
+    transaction_logger = TransactionLogger()
     # Setup payment processors
     stripe_processor = StripePaymentProcessor()
     offline_processor = OfflinePaymentProcessor() 
@@ -187,15 +195,21 @@ if __name__ == "__main__":
     email_notification = EmailNotification() 
     # Initialize PaymentService with Stripe and EmailNotification
     payment_processor_email = PaymentService(
-        stripe_processor, 
-        email_notification,
+        customer_validator=customer_validator,
+        payment_validator=payment_validator, 
+        payment_processor=stripe_processor, 
+        notifier=email_notification,
         refund_processor=stripe_processor,
-        recurring_processor=stripe_processor 
+        recurring_processor=stripe_processor,
+        logger=transaction_logger
         ) 
     # Initialize PaymentService with Stripe and SMSNotification 
     payment_processor_sms = PaymentService(
-        stripe_processor,
-        sms_notification
+        customer_validator=customer_validator,
+        payment_validator=payment_validator, 
+        payment_processor=stripe_processor,
+        notifier=sms_notification,
+        logger=transaction_logger
     ) 
     # Setup the customer data and payment data
     customer_data_with_email = {
@@ -222,7 +236,12 @@ if __name__ == "__main__":
     
     # Using OfflinePaymentProcessor with EmailNotification
     print("\nUsing OfflinePaymentProcessor with EmailNotification")
-    offline_payment_service = PaymentService(offline_processor, email_notification)
+    offline_payment_service = PaymentService(
+        customer_validator=customer_validator,
+        payment_validator=payment_validator, 
+        payment_processor=offline_processor, 
+        notifier=email_notification, 
+        logger=transaction_logger)
     offline_payment_response = offline_payment_service.process_transaction(
         customer_data_with_email, payment_data
     )
