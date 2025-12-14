@@ -15,12 +15,13 @@ class StripePaymentProcessor(PaymentProcessorProtocol, RefundProcessorProtocol, 
         # Payment processing responsibility
         try:
             charge = stripe.Charge.create(
-                amount=payment_data["amount"],
-                currency="usd",
-                source=payment_data["source"],
-                description="Charge for " + customer_data["name"],
+                amount=payment_data.amount,
+                currency=payment_data.currency,
+                source=payment_data.source,
+                description="Charge for " + customer_data.name,
             )
-            print("Payment successful")
+            print("Payment successful.")
+            print("Transaction_ID:", charge["id"])
             return PaymentResponse(
                 status=charge["status"],
                 amount=charge["amount"],
@@ -31,7 +32,7 @@ class StripePaymentProcessor(PaymentProcessorProtocol, RefundProcessorProtocol, 
             print("Payment failed:", e)
             return PaymentResponse(
                 status="failed",
-                amount=payment_data["amount"],
+                amount=payment_data.amount,
                 transaction_id=None,
                 message=str(e),
             )
@@ -58,10 +59,4 @@ class StripePaymentProcessor(PaymentProcessorProtocol, RefundProcessorProtocol, 
                 message=str(e),
             )
     def setup_recurring_payment(self, customer_data: CustomerData, payment_data: PaymentData) -> PaymentResponse:
-        stripe.api_key = os.getenv("STRIPE_API_KEY")
-        price_id = os.getenv("STRIPE_PRICE_ID")
-        try:
-            customer = self._get_or_create_customer(customer_data)
-            payment_method = self._attach_payment_method(customer.id, payment_data.source)
-
-            self._set_default_payment_method(customer.id, payment_method)
+        print("Creating recurring payment for", customer_data.name)  
