@@ -19,6 +19,10 @@ class PaymentService:
     recurring_processor: Optional[RecurringPaymentProcessorProtocol] = None
     refund_processor: Optional[RefundProcessorProtocol] = None
 
+    def set_notifier(self, notifier: NotifierProtocol):
+        print(f"Changing the notifier implementation {notifier.__class__.__name__}")
+        self.notifier = notifier
+
     def process_transaction(self, customer_data, payment_data) -> PaymentResponse:
         try:
             self.customer_validator.validate(customer_data)
