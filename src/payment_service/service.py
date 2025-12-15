@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 from typing import Optional
 from stripe import StripeError 
-
 from .commons import PaymentResponse
 from .processors import PaymentProcessorProtocol, RecurringPaymentProcessorProtocol, RefundProcessorProtocol
 from .notifiers import NotifierProtocol
