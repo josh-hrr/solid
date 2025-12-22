@@ -1,11 +1,12 @@
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Self
 from stripe import StripeError 
-from .commons import PaymentResponse
+from .commons import PaymentResponse, PaymentData
 from .processors import PaymentProcessorProtocol, RecurringPaymentProcessorProtocol, RefundProcessorProtocol
 from .notifiers import NotifierProtocol
 from .validators import CustomerValidator, PaymentDataValidator
 from .loggers import TransactionLogger 
+from .factory import PaymentProcessorFactory
 
 @dataclass
 class PaymentService:
@@ -18,6 +19,14 @@ class PaymentService:
     logger: TransactionLogger
     recurring_processor: Optional[RecurringPaymentProcessorProtocol] = None
     refund_processor: Optional[RefundProcessorProtocol] = None
+
+    @classmethod
+    def create_with_payment_processor(cls, payment_data: PaymentData, **kwargs) -> Self:
+        try:
+            processor = PaymentProcessorFactory.create_payment_processor(payment_data)
+            return cls(payment_processor=processor, **kwargs)
+        except ValueError as e:
+            print("Error creating PaymentService:", e)
 
     def set_notifier(self, notifier: NotifierProtocol):
         print(f"Changing the notifier implementation {notifier.__class__.__name__}")
